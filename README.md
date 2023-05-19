@@ -2,7 +2,7 @@
 
 ADCSKiller is a Python-based tool designed to automate the process of discovering and exploiting Active Directory Certificate Services (ADCS) vulnerabilities. It leverages features of Certipy and Coercer to simplify the process of attacking ADCS infrastructure. Please note that the ADCSKiller is currently in its first drafts and will undergo further refinements and additions in future updates for sure.
 
-![image](https://github.com/grimlockx/ADCSKiller/assets/95048484/55cf9591-d1b5-46eb-b88d-c81fb7650c7e)
+![image](https://github.com/grimlockx/ADCSKiller/assets/95048484/e4102251-cd50-4f74-b8c1-578677d35d0c)
 
 ## Features
 - Enumerate Domain Administrators via LDAP
@@ -29,17 +29,15 @@ Usage: adcskiller.py [-h] -d DOMAIN -u USERNAME -p PASSWORD -t TARGET -l LEVEL -
 Options:
 -h, --help Show this help message and exit.
 -d DOMAIN, --domain DOMAIN
-    Target domain name. Use the fully qualified domain name (FQDN).
+                        Target domain name. Use FQDN
 -u USERNAME, --username USERNAME
-    Username.
+                        Username.
 -p PASSWORD, --password PASSWORD
-    Password.
--t TARGET, --target TARGET
-    Target.
--l LEVEL, --level LEVEL
-    Aggressiveness level (1-3).
--L LHOST, --LHOST LHOST
-    Local hostname. An ADIDNS entry might be required.
+                        Password.
+-dc-ip TARGET, --target TARGET
+                        IP Address of the domain controller.
+-L LHOST, --lhost LHOST
+                         FQDN of the listener machine - An ADIDNS is probably required
 ```
 
 ## Todos
