@@ -45,6 +45,7 @@ Options:
 ## Todos
 
 - [ ] Tests, Tests, Tests
+- [ ] Enumerate principals which are allowed to dcsync
 - [ ] Use dirkjanm's gettgtpkinit.py to receive a ticket instead of Certipy auth
 - [ ] Support DC Certificate Authorities
 - [ ] ESC2 - ESC7
