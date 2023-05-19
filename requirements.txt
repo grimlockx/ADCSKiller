@@ -1,4 +1,3 @@
 argparse
 ldap3
-json
 threading
