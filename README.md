@@ -9,13 +9,13 @@ ADCSKiller is a Python-based tool designed to automate the process of discoverin
 - Exploitation of ESC1
 - Exploitation of ESC8
 
-## Setup
+## Installation
 
 Since this tool relies on Certipy and Coercer, both tools have to be installed first.
 
 ```bash
 git clone https://github.com/ly4k/Certipy && cd Certipy && python3 setup.py install.py
-python3 -m pip install coercer
+git clone https://github.com/p0dalirius/Coercer && cd Coercer && pip install -r requirements.txt && python3 setup.py install
 git clone https://github.com/grimlockx/ADCSKiller/ && cd ADCSKiller && pip install -r requirements.txt
 ```
 
