@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-""" ADCS exploitation automatation
+""" ADCS exploitation automation
 
 This tool tries to automate the process of exploiting ADCS by weaponizing certipy. This is the first draft.
 
