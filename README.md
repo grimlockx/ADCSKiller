@@ -52,3 +52,10 @@ Options:
 - [ ] ESC9 - ESC11?
 - [ ] Automated add an ADIDNS entry if required
 - [ ] Support DCSync functionality
+
+## Credits
+
+- [Oliver Lyak[(https://github.com/ly4k/Certipy "Certipy") for Certipy
+- [p0dalirius](https://github.com/p0dalirius/Coercer "Coercer") for Coercer
+- [SpecterOps](https://specterops.io/) for their research on ADCS
+- [S3cur3Th1sSh1t](https://github.com/S3cur3Th1sSh1t) for bringing these attacks to my screen
