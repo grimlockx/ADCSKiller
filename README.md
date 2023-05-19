@@ -2,6 +2,8 @@
 
 ADCSKiller is a Python-based tool designed to automate the process of discovering and exploiting Active Directory Certificate Services (ADCS) vulnerabilities. It leverages features of Certipy and Coercer to simplify the process of attacking ADCS infrastructure. Please note that the ADCSKiller is currently in its first drafts and will undergo further refinements and additions in future updates for sure.
 
+![image](https://github.com/grimlockx/ADCSKiller/assets/95048484/553019af-0a63-4bf3-a0a6-8b9f9d99ff92)
+
 ## Features
 - Enumerate Domain Administrators via LDAP
 - Enumerate Domaincontrollers via LDAP
