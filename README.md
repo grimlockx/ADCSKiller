@@ -42,10 +42,10 @@ Options:
 
 ## Todos
 
-[ ] Tests, Tests, Tests
-[ ] Use dirkjanm's gettgtpkinit.py to receive a ticket instead of Certipy auth
-[ ] Support DC Certificate Authorities
-[ ] ESC2 - ESC7
-[ ] ESC9 - ESC11?
-[ ] Automated add an ADIDNS entry if required
-[ ] Support DCSync functionality
+- [ ] Tests, Tests, Tests
+- [ ] Use dirkjanm's gettgtpkinit.py to receive a ticket instead of Certipy auth
+- [ ] Support DC Certificate Authorities
+- [ ] ESC2 - ESC7
+- [ ] ESC9 - ESC11?
+- [ ] Automated add an ADIDNS entry if required
+- [ ] Support DCSync functionality
