@@ -1,5 +1,4 @@
 argparse
-subprocess
 ldap3
 json
 threading
