@@ -1,12 +1,25 @@
 # ADCSKiller - An ADCS Exploitation Automation Tool
 
-ADCSKiller is a Python-based tool designed to automate the exploitation of Active Directory Certificate Services (AD-CS) vulnerabilities. It leverages features of Certipy and Coercer to simplify the process of attacking ADCS infrastructure. Please note that the ADCSKiller is currently in its first drafts and will undergo further refinements and additions in future updates for sure.
+ADCSKiller is a Python-based tool designed to automate the process of discovering and exploiting Active Directory Certificate Services (ADCS) vulnerabilities. It leverages features of Certipy and Coercer to simplify the process of attacking ADCS infrastructure. Please note that the ADCSKiller is currently in its first drafts and will undergo further refinements and additions in future updates for sure.
 
 ## Features
+- Enumerate Domain Administrators via LDAP
+- Enumerate Domaincontrollers via LDAP
+- Enumerate Certificate Authorities via Certipy
 - Exploitation of ESC1
 - Exploitation of ESC8
 
-# Usage
+## Setup
+
+Since this tool relies on Certipy and Coercer, both tools have to be installed first.
+
+```bash
+git clone https://github.com/ly4k/Certipy && cd Certipy && python3 setup.py install.py
+python3 -m pip install coercer
+git clone https://github.com/grimlockx/ADCSKiller/ && cd ADCSKiller && pip install -r requirements.txt
+```
+
+## Usage
 
 ```bash
 Usage: adcskiller.py [-h] -d DOMAIN -u USERNAME -p PASSWORD -t TARGET -l LEVEL -L LHOST
@@ -26,3 +39,13 @@ Options:
 -L LHOST, --LHOST LHOST
     Local hostname. An ADIDNS entry might be required.
 ```
+
+## Todos
+
+[ ] Tests, Tests, Tests
+[ ] Use dirkjanm's gettgtpkinit.py to receive a ticket instead of Certipy auth
+[ ] Support DC Certificate Authorities
+[ ] ESC2 - ESC7
+[ ] ESC9 - ESC11?
+[ ] Automated add an ADIDNS entry if required
+[ ] Support DCSync functionality
