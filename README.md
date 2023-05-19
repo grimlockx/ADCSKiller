@@ -16,9 +16,10 @@ ADCSKiller is a Python-based tool designed to automate the process of discoverin
 Since this tool relies on Certipy and Coercer, both tools have to be installed first.
 
 ```bash
-git clone https://github.com/ly4k/Certipy && cd Certipy && python3 setup.py install
-git clone https://github.com/p0dalirius/Coercer && cd Coercer && pip install -r requirements.txt && python3 setup.py install
-git clone https://github.com/grimlockx/ADCSKiller/ && cd ADCSKiller && pip install -r requirements.txt
+python3 -V # Needs at least Python 3.7 installed
+git clone https://github.com/ly4k/Certipy && pushd Certipy && python3 setup.py install && popd
+git clone https://github.com/p0dalirius/Coercer && pushd Coercer && pip install -r requirements.txt && python3 setup.py install && popd
+git clone https://github.com/grimlockx/ADCSKiller/ && pushd ADCSKiller && pip install -r requirements.txt && popd
 ```
 
 ## Usage
